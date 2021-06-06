@@ -1,3 +1,6 @@
 #!/bin/sh
-echo "Starting tftpd serving tftproot/"
-in.tftpd -L --address 10.0.0.1 -s tftproot/
+rootdir=tftproot/
+
+mkdir -p $rootdir
+echo "Starting tftpd serving $rootdir"
+in.tftpd -L --address 10.0.0.1 -s $rootdir
