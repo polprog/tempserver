@@ -1,0 +1,64 @@
+Troubleshooting TFTPD
+=====================
+
+
+tftpd-hpa is (so far) the only tftpd that allows for standalone (ie. without
+inetd) operation. I have tried two others (atftpd, in.tftpd) which did not want
+to cooperate.
+
+tftpd-hpa is particularly not talkative when it comes to reporting. running it
+without inetd is a hack in itself, but I do believe that it should at least have
+a verbose option.. anyway. If in.tftpd exits immediately, check the exit code 
+
+$ sudo in.tftpd -L --address 10.0.0.1 -s tftproot/
+$ echo $?
+71
+
+This indicates a failure, shame that the man page does not say what kind of
+failure it is (why?? what's so hard about adding that paragraph?) 
+
+There are several things to check:
+- Is it able to bind to the specified address? Does the interface you expect it
+to run on has that IP address? 
+- Is there another tftpd running? Check:
+$ ps -A | grep tftp
+# netstat -lnp | grep 69
+
+kill as needed.
+
+- In case you see there is another tftpd running, make sure you disabled and
+  stopped the tftpd-hpa service (on Debian: systemctl disable tftpd-hpa;
+  systemctl stop tftpd-hpa ).
+
+
+Further troubleshooting
+-----------------------
+
+strace is your friend -- you should check it out
+Here i can confirm that the tftp server is actually listening with select()
+
+root@poplar:~# strace in.tftpd -L --address 10.0.0.1 .
+execve("/usr/sbin/in.tftpd", ["in.tftpd", "-L", "--address", "10.0.0.1", "."], 0x7fffaa82e2b0 /* 19 vars */) = 0
+----->8----
+openat(AT_FDCWD, "/etc/nsswitch.conf", O_RDONLY|O_CLOEXEC) = 4
+fstat(4, {st_mode=S_IFREG|0644, st_size=562, ...}) = 0
+read(4, " # /etc/nsswitch.conf\n#\n# Exampl"..., 4096) = 562
+read(4, "", 4096)                       = 0
+close(4)                                = 0
+----->8----
+openat(AT_FDCWD, "/etc/services", O_RDONLY|O_CLOEXEC) = 5
+lseek(5, 0, SEEK_CUR)                   = 0
+fstat(5, {st_mode=S_IFREG|0644, st_size=18774, ...}) = 0
+read(5, "# Network services, Internet sty"..., 4096) = 4096
+close(5)                                = 0
+bind(4, {sa_family=AF_INET, sin_port=htons(69), sin_addr=inet_addr("10.0.0.1")}, 16) = 0
+----->8----
+select(5, [4], NULL, NULL, NULL
+
+Here we can see the system calls in order. First, execve to create a new process. Then, in.tftpd reads /etc/nsswitch.conf (openat(), fstat(), two read()'s, and close() ), finally, it binds to a specified address - 10.0.0.1 - and starts waiting for data with select(). Now I am sure that the process is listening on that address and ready to serve files. strace is an amazing tool. Everyone should know it.
+
+And if you leave strace running, it will show you as tftpd accesses the file to send to the client, too. It's pretty neat:
+
+recvmsg(4, {msg_name={sa_family=AF_INET, sin_port=htons(2071), sin_addr=inet_addr("10.0.0.2")}, msg_namelen=28->16, msg_iov=[{iov_base="\0\1/pxelinux.0\0octet\0blksize\0001456"..., iov_len=65468}], msg_iovlen=1, msg_control=[{cmsg_len=28, cmsg_level=SOL_IP, cmsg_type=IP_PKTINFO, cmsg_data={ipi_ifindex=if_nametoindex("enp0s25"), ipi_spec_dst=inet_addr("10.0.0.1"), ipi_addr=inet_addr("10.0.0.1")}}], msg_controllen=32, msg_flags=0}, 0) = 33
+
+here, for example, we can see the client's (10.0.0.2) tftp request.
