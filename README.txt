@@ -12,18 +12,19 @@ Polprog's TENT
 ===============
 
 TENT (Temporary Ephemeral Networking Toolkit) is is a collection of scripts that
-allow you to set up a temporary DHCP, FTP and TFTP server. The aim of this is to
+allow you to set up a temporary network services servers. The aim of this is to
 enable creating a fast test network on a computer without the hassle of needing
 to edit system-wide configuration files or enable/disable system services.
 
 Current services
 -----------------
 
-TENT v1.0 supports setting up the following services:
+TENT v1.1 supports setting up the following services:
 
     - DHCP
     - FTP
     - TFTP
+    - SSH
 
 DHCP and TFTP services allow you to set up a PXE server, see the "PXE server"
 section below.
@@ -38,6 +39,8 @@ will have to build it from source. It is available in Arch linux.
 
 The TFTP server uses the HPA tftpd. It is available in the tftpd-hpa package on
 debian.
+
+The SSH server uses dropbear and dropbearkey. SSH server needs to be run as root, even when not using a privileged port.
 
 Please note, that if you are installing these from the repository, you
 will most likely have to stop and disable the system services, as they are
@@ -95,6 +98,8 @@ bftpd.conf  - FTP server config file
 tftpd.sh    - TFTP server script
 tftproot/   - root directory of TFTP server
 troubleshooting.txt  - troubleshooting the TFTP server
+
+dropbear.sh - SSH server script
 
 forward.sh  - Utility script to enable NAT for the DHCP server.
 
