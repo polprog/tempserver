@@ -1,10 +1,10 @@
 
       .'\.         Temporary  
-    .'   \'.	   Eephemeral 
+    .'   \'.	   Ephemeral 
    /\'.   \ '.	   Networking 
   / |\ '.  \  'x   Toolkit    
  /  |\\  ','
-/__/  |\,' 'x
+/__/  |\,' 'x       v1.2
           
           
 
@@ -19,12 +19,12 @@ to edit system-wide configuration files or enable/disable system services.
 Current services
 -----------------
 
-TENT v1.1 supports setting up the following services:
+TENT v1.2 supports setting up the following services:
 
     - DHCP
     - FTP
     - TFTP
-    - SSH
+    - SSH (root and rootless)
 
 DHCP and TFTP services allow you to set up a PXE server, see the "PXE server"
 section below.
@@ -40,7 +40,10 @@ will have to build it from source. It is available in Arch linux.
 The TFTP server uses the HPA tftpd. It is available in the tftpd-hpa package on
 debian.
 
-The SSH server uses dropbear and dropbearkey. SSH server needs to be run as root, even when not using a privileged port.
+The SSH server uses dropbear and dropbearkey. SSH server needs to be run as
+root, even when not using a privileged port.
+
+The Rootless SSH server needs Python 3 and the paramiko module
 
 Please note, that if you are installing these from the repository, you
 will most likely have to stop and disable the system services, as they are
@@ -50,7 +53,7 @@ wants to accidentally have a second DHCP server to a network?)
 
 Usage
 ------
-Each of the servers has a wrapper script. These scripts do not take any
+Each of the servers has a wrapper script. These scripts usually do not take any
 arguments. Usually it is enough to run the script as root. These scripts can be
 run as background jobs. Each script has got a set of user-configurable
 variables, and, if necesary, a similarly named configuration file.
@@ -64,6 +67,18 @@ or
 
 All scripts can be stopped with ^C, scripts that need cleanup trap SIGINT as
 needed.
+
+Rootless SSH server
+-------------------
+TENT comes with an SSH-compatible server written in Python 3 using the paramiko
+library. This script emulates an SSH server allowing clients to connect and run
+the shell. Contrary to a regular SSH server, this server always executes the
+shell as the user who ran it, requiring no root priviledges. Think about it as
+an SSH replacement for netcat -e
+
+Usage: ./paramikoserver.py -h
+By default listens on localhost:2200, user is 'azurediamond', password 'hunter2'
+
 
 PXE server
 -----------
@@ -103,4 +118,4 @@ dropbear.sh - SSH server script
 
 forward.sh  - Utility script to enable NAT for the DHCP server.
 
-
+paramikoserver.py - Rootless SSH server
