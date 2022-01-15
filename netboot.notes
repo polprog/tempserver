@@ -1,0 +1,155 @@
+
+Preparing a diskless i686 debian netboot server for netbooting old
+computers.
+(Shame on you debian for dropping i586 support :> )
+
+Preparing DHCP and TFTP setup
+=============================
+Make sure the dhcpd.conf contains the following options:
+ 
+ filename "pxelinux.0";
+ next-server 10.0.0.1;
+
+And that the next-server option points at tftpd server IP.
+
+dhcpd.sh and tftpd.sh default configurations are set correctly.
+
+
+Preparing the netboot files
+===========================
+Place the following files in tftproot/
+
+ pxelinux.0
+ chain.c32
+ ldlinux.c32
+ libcom32.c32
+ libutil.c32
+ menu.c32
+
+Prepare pxelinux config ( tftproot/pxelinux.cfg/default ):
+
+default menu.c32
+prompt 0
+
+MENU TITLE >>>PXE boot server at xyzzy<<<
+MENU COLOR sel 32;1
+MENU COLOR title 40;37;1
+
+
+LABEL Debian32
+    MENU LABEL Diskless Debian i686
+    MENU DEFAULT
+    KERNEL vmlinuz32
+    APPEND vga=773 ip=10.0.0.2:10.0.0.1 rw initrd=initrd.img32 root=/dev/nfs nfsroot=10.0.0.1:/home/poplar/nfsroot init=/sbin/init
+
+
+In this file you can also put other systems. I have a menu option that
+uses MEMDISK to download and boot a small MS-DOS floppy with some utilities.
+
+   
+Prepare the kernel and initrd file:
+Note that in my case I am netbooting a 32-bit system from a 64-bit
+system, therefore I had to optain an i686 kernel and ramdisk. One way
+is to add multiarch and install linux-image-foo-i686 it, but the
+install script will rebuild the GRUB config and break it (as the i686
+kernel may become a default, and render you with a config that does
+not boot the default option - a i686 kernel cannot execute an x86_64
+/sbin/init ). A better option is to download the package file and
+extract them. Either way in my case I have put the kernel and ramdisk
+file into 
+
+ tftproot/vmlinuz32
+ tftproot/initrd.img32
+
+Preparing the NFS root
+======================
+Simply run debootstrap in the root directory of the NFS share:
+
+ sudo debootstrap --arch i386 buster .
+
+Then apply some changes (as seen at
+https://www.adrian.idv.hk/2020-11-24-pxeboot/ )
+
+chroot nsfroot/
+
+useradd -m -G adm,dialout,cdrom,sudo,dip,plugdev,users user
+passwd user
+# configure to taste, install additional software etc.
+exit
+
+Edit nfsroot/etc/network/interfaces:
+
+auto lo
+iface lo inet loopback
+
+allow-hotplug eth0
+iface eth0 inet dhcp
+
+,------------------- Note on automatic routing --------------------.
+ For some reason the PXE client does not get a default route despite
+ the DHCP server sending a router option. Therefore you have to add a
+ special script to add that route in
+ nfsroot/etc/initramfs-tools/scripts/nfs-bottom/route.sh:
+
+ #!/bin/sh
+ ip r add default via 10.0.0.1
+
+ (you can also put other scripts in there, see initramfs-tools(8)
+ manual for an explanation when which directory is ran)
+
+ then run (in chroot)
+
+ chmod 755 etc/initramfs-tools/scripts/nfs-bottom/route.sh
+ update-initramfs -u
+
+ update-initramfs will actually *run* the scripts! So you have to
+ delete that route afterwards from your host machine :)
+
+ ip r del default via 10.0.0.1
+
+'-------------------------------------------------------------------'
+
+
+exit chroot and copy the newly created initrd to the tftp root:
+nfsroot$ cp boot/initrd.img-4.19.0-18-686 ../where/is/tftproot/initrd.img32
+
+Then edit nfsroot/etc/fstab:
+
+/dev/nfs   /          nfs    tcp,nolock  0   0
+proc       /proc      proc   defaults    0   1
+tmpfs      /tmp       tmpfs  defaults    0   0
+tmpfs      /var/log   tmpfs  defaults    0   0
+tmpfs      /var/tmp   tmpfs  defaults    0   0
+10.0.0.1:/home/xyzzy /home/user nfs	defaults	0	0
+
+Next, configure the exports in /etc/exports (on host machine)
+
+/path/to/rootdisk 10.0.0.0/24(rw,async,no_subtree_check,no_root_squash)
+/home/xyzzy       10.0.0.0/24(rw,async,no_subtree_check,no_root_squash)
+
+I like to export my /home to the PXE booted machines to access my
+files. 
+
+
+
+To start the netboot server:
+============================
+1. start NFS:
+# systemctl start nfs-kernel-server
+
+2. Start DHCPD & TFTPD
+# ./dhcpd.sh &
+# ./tftpd.sh
+
+3. Optionally enable forwarding to WAN
+# ./forward.sh enable
+
+
+To stop the netboot server
+==========================
+
+1. Stop forwarding, DHCPD, TFTPD and NFS
+# ./forward.sh disable
+ * fg and ^C dhcpd.sh and tftpd.sh *
+# systemctl stop nfs-kernel-server
+

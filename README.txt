@@ -27,7 +27,7 @@ TENT v1.2 supports setting up the following services:
     - SSH (root and rootless)
 
 DHCP and TFTP services allow you to set up a PXE server, see the "PXE server"
-section below.
+section below as well as netboot.notes for how to set up a Debian netboot server.
 
 Dependencies
 -------------
@@ -113,6 +113,8 @@ bftpd.conf  - FTP server config file
 tftpd.sh    - TFTP server script
 tftproot/   - root directory of TFTP server
 troubleshooting.txt  - troubleshooting the TFTP server
+
+netboot.notes - notes about setting up a PXE host serving Debian Buster
 
 dropbear.sh - SSH server script
 
